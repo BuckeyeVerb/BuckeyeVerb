@@ -1,5 +1,5 @@
 %This script in meant to test the function in the DSP toolbox called
-%dsp.SpectrumAnalyzer
+%dsp.SpectrumAnalyzer. This script was written by Austin Mackey
 
 %First a simple sin wave is created and plotted in the time domain
 
