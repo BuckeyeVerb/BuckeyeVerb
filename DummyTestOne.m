@@ -1,7 +1,7 @@
 function [x,h,h1,h2,y] = DummyTestOne(N,s)
-%Dummy Test One -Two different ways of extracting impulse responses from measured data.
+%Dummy Test One -Two different ways of extracting impulse responses from simulated data.
 %
-%syntax: [x,h,h1,h2,y] = DummyTestOne(N)
+%syntax: [x,h,h1,h2,y] = DummyTestOne(N,s)
 %
 % Output Variables:
 % x is the generated MLS sequence using GenerateMLS.m (no repititions)
@@ -57,11 +57,8 @@ h1=h1(1:length(h1)-1,1);
 
 %Send y(t) though a new function that extracts h(t) from the frequency domain
 
-%before sending output y to this new function, make sure that x and y are
-%of equal length
-y2 = y(1:2:end);
 
-h2 = FFTImpulseExtraction(x,y2);
+h2 = FFTImpulseExtraction(x,y);
 end
 
 %Compare h1(t), h2(t), and h(t)
@@ -78,8 +75,8 @@ function h2 = FFTImpulseExtraction(x,y)
 % h2 = time domain impulse response of system
 
 %Take ffts of the input and output variables
-Y = fft(y);
-X = fft(x);
+Y = fft(y,length(y));
+X = fft(x,length(y));
 
 %H = Y/X.  Divide the two signals to get the transferfunction H
 
@@ -88,5 +85,7 @@ H = Y./X;
 %Take inverse transform to get impulse response
 h2 = ifft(H);
 
+%Get rid of zero pads
+h2 = h2(1:length(x));
 
 end
