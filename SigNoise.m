@@ -18,13 +18,15 @@ signalmatrixSHORT=signalmatrix(1:length(noisematrix));
 % Performing the root of the sum of squares on each vector:
 signalPow = rssq(signalmatrixSHORT).^2;
 noisePow  = rssq(noisematrix).^2;
-snratio = 10 * log10(signalPow/noisePow) %dividing them to get the signal-to-
+snratio = 10 * log10(signalPow/noisePow); %dividing them to get the signal-to-
 % noise ratio in decibels
 
+%{
 A=wavread(wavename);
 ALeft=A(:,1);
 figure
 plot(20*log10(abs(ALeft)))
+%}
 
 end
 

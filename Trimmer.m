@@ -107,9 +107,10 @@ signalmatrix=signal((impulseindex+(2^N)):((impulseindex+(2^N))+((2^N)*(reps+1)))
 % reverberations are included, "signalmatrix" is one MLS' length longer
 % than the number of repetitions; this is the 'reps+1' term above.
 
+%{
 plot(signalmatrix)
 figure
 plot(noisematrix)
-
+%}
 end
 
