@@ -1,10 +1,10 @@
-Enter file contents herefunction [signalmatrix, noisematrix] = Trimmer(wavename,reps,N,channels)
-%SMOOTHER The function reads in a wave file, finds the alignment impulse, 
-%and then takes everything BEFORE the impulse as the
-%noise.  GenerateMLSSequence places 2^N (the 'N' you choose) zeroes between
-%the alignment impulse and the start of the actual maximum-length
-%sequences; this program makes another matrix ("signalmatrix"), with the
-%rest of the signal, beginning from the start of the actual MLSes.
+function [signalmatrix, noisematrix] = Trimmer(wavename,reps,N,channels)
+%TRIMMER The function reads in a wave file, finds the alignment impulse, 
+% and then takes everything BEFORE the alignment impulse 
+% as the noise.  GenerateMLSSequence places 2^N (the 'N' you choose) zeroes
+% between the alignment impulse and the start of the actual maximum-length
+% sequences; this program makes another matrix ("signalmatrix"), with the
+% rest of the signal, beginning from the start of the actual MLSes.
 %
 %INPUTS:
 %          wavename          WAVE AUDIO file that will be used
@@ -45,17 +45,18 @@ end
 signal=wavread(wavename); % "signal" is the raw data matrix from the WAVE file.
 
 
+
 if (channels==1)
     signalleft=signal(:,1);
-    impulset=findpeaks(signalleft,'',2^N);
+    [impulset,peakvalues]=findpeaks(signalleft,'',2^N);
 elseif (channels==2)
     signalright=signal(:,2);
-    impulset=findpeaks(signalright,'',2^N);
+    [impulset,peakvalues]=findpeaks(signalright,'',2^N);
 end
 if (channels==3)
 impulset = zeros(1,length(signal(1,:)));
     for i=1:length(signal(1,:)) % Go through both stereo channels
-        k=findpeaks(signal(:,i),'',2^N);  % It's very important that this
+        [k,peakvalues]=findpeaks(signal(:,i),'',2^N);  % It's very important that this
                                           % is the "findpeaks" function
                                           % included with the MLS Sequence
                                           % package and NOT the "findpeaks"
@@ -64,31 +65,51 @@ impulset = zeros(1,length(signal(1,:)));
         impulset(i) = k(1);
     end
 end
-
+% At this point in the program, "impulset" is a vector listing the
+% locations (indices) in "signal" where the peaks are; "peakvalues" is a
+% vector the same length containing the respective amplitudes of those
+% peaks.
     
-impulseindex = min(impulset); % "impulseindex" is the number we're concerned
-                             % with, as that's the location of the
-                             % alignment impulse.
+%-----------------
+% Displays a plot with several potential peaks labelled, since the length
+% of space before the impalign might be more than the order of the MLS.
+% The user will then get to choose which peak is the impalign.
+figure
+plot(signal(1:(length(signal)/2))) %Only plotting half for viewing ease
+
+% Labelling the plot:
+for z=1:4
+    xd=double(impulset(z)); % Inputs to 'text' function must be doubles
+    yd=double(peakvalues(z)); 
+    text(xd,yd,[num2str(z)])
+end
+%-----------------
 
 
-noisematrix=signal(1:(impulseindex-2))'; % Chops off everything AFTER a
-                                         % certain point; point is two
-                                         % samples BEFORE the Impalign;
-                                         % only noise is retained.
-signalmatrix=signal((impulseindex+(2^N)):(impulseindex+(2^N))+((2^N)*(reps+1)))';
-% ^Creates a matrix of equal length to "noisematrix" that consists of the
-% signal.
+%ASK USER
+prompt = 'Pick alignment impulse from numbered peaks on plot: ';
+selectedZ = input(prompt);
 
 
-%------PRESENTLY UNUSED; may be incorporated later for plotting---------
-%X=[1:length(C)]; % X is a matrix for the length of the 'C' vector
-%X=X*(1/96000);   % Changing the units of X from samples to seconds.
-%-----------------------------------------------------------------------
 
+impulseindex = impulset(selectedZ); % "impulseindex" is the number we're concerned
+                              % with, as that's the location of the
+                              % alignment impulse.
+
+
+noisematrix=signal(1:(impulseindex-10))';
+% ^ Chops everything AFTER the Impalign and saves the rest as noise.
+
+
+
+signalmatrix=signal((impulseindex+(2^N)):((impulseindex+(2^N))+((2^N)*(reps+1))))';
+% ^Creates a matrix that consists of the signal.  To ensure that the
+% reverberations are included, "signalmatrix" is one MLS' length longer
+% than the number of repetitions; this is the 'reps+1' term above.
 
 plot(signalmatrix)
-    
+figure
+plot(noisematrix)
 
-    
 end
 
