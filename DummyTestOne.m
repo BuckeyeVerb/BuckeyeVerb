@@ -1,7 +1,7 @@
-function [x,h,h1,h2,y] = DummyTestOne(reps,N,s)
+function [x,h,h1,h2,y] = DummyTestOne(N,s)
 %Dummy Test One -Two different ways of extracting impulse responses from simulated data.
 %
-%syntax: [x,h,h1,h2,y] = DummyTestOne(reps,N,s)
+%syntax: [x,h,h1,h2,y] = DummyTestOne(N,s)
 %
 % Output Variables:
 % x is the generated MLS sequence using GenerateMLS.m (no repititions)
@@ -11,7 +11,6 @@ function [x,h,h1,h2,y] = DummyTestOne(reps,N,s)
 % y is the convolution of the two signals
 %
 % Input Variables:
-% reps is the number of MLS repetitions (minimum 2)
 % N is the order of the MLS sequence
 % s is the level of noise in the output. 0 corresponds to no SNR = inf, 1 is
 % SNR = 1
@@ -33,37 +32,48 @@ function [x,h,h1,h2,y] = DummyTestOne(reps,N,s)
 %Generate MLS sequence
 P=2^N - 1; %length of MLS sequence
 
-[x burst] = GenerateMLSSequence(reps,N,0);
+x = GenerateMLS(N,1);
+x=x';
 
-%Generate known impulse response h(t)
-n=[1:P];
-h = exp(-.1*n).*cos(n);
+%Generate known (random) impulse response h(t)               
+n = [1:P];                                                          % Tell the exponential to work 1 sample at a time up to length P
+RT60 = 4;
+RL = RT60*.001*96000;                                               % Reverb Length in Samples for a Sample Rate of 96K, RT60 in ms   
+a = -log(.001)/RL;                                                  % Exponential parameter
+                                                         
+noise = rand(P,1)-rand(P,1);
+posNoise = 0.5*(abs(noise)+noise);
+negNoise = 0.5*(noise-abs(noise));
+
+posImp = exp(-a.*n).*(posNoise)';
+negImp = exp(-a.*n).*(negNoise)';
+h = posImp + negImp;
+h = h';
 
 %convolve x(t)*h(t)=y(t) Note: according to the MLS theory pager by Mark
 %Thomas, the convolution must be circular. For the intitail test, linear
 %convolution will be preformed
 
-y = conv(x,h);
+y = cconv(x,h,length(h));
+
 %add noise to the output signal
 noise = s.*(rand(length(y),1)-rand(length(y),1));
 y = y + noise;
+
 %Send y(t) through AnMLS function  y(t) -> AnMLS -> h1(t)
 
-h1 = AnalyseMLSSequence(y,0,reps,N,true,0);
+h1 = AnalyseMLSSequence(y,0,1,N,true,0);
 h1=h1(1:length(h1)-1,1);
 
 %Send y(t) though a new function that extracts h(t) from the frequency domain
 
 
-h2 = FFTImpulseExtraction(x,y,burst);
-
-%transpose h to match dim h1 and dim h2
-h=h';
+h2 = FFTImpulseExtraction(x,y);
 end
 
 %Compare h1(t), h2(t), and h(t)
 
-function h2 = FFTImpulseExtraction(x,y,burst)
+function h2 = FFTImpulseExtraction(x,y)
 %This function extracts the time domain impulse response from a given input
 %and output.
 %
@@ -86,6 +96,6 @@ H = Y./X;
 h2 = ifft(H);
 
 %Get rid of zero pads
-h2 = h2(1:length(burst));
+h2 = h2(1:length(x));
 
 end
