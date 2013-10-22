@@ -1,4 +1,4 @@
-function [ ir,H ] = AnalyseBasement(mls,observed,reps,N,impalign,varargin) 
+function [ ir,H, hand1,hand2,hand3,hand4] = AnalyseBasement(mls,observed,reps,N,impalign,varargin) 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % [ ir,H ] = AnalyseBasement(mls, observed,reps,N,impalign, DCcoupling, offset)
 % Inputs:
@@ -53,11 +53,12 @@ ir = AnalyseMLSSequence(y,offset,reps,N,DCcoupling,impalign);
 hand1 = figure;                          % plot input and output variables on the same plot
 subplot(2,1,1)
 plot(x);
-title(sprintf('%s;   reps = %d, Order = %d, impalign = %d',observed ,reps,N, impalign),'interpreter','none');
+title(sprintf('Raw Plot of MLS'));
 xlabel('samples');
 ylabel('x[n]')
 subplot(2,1,2)
 plot(y);
+title('Raw recorded data');
 xlabel('samples');
 ylabel('y[n]');
 
@@ -70,12 +71,13 @@ ylabel('h[n]');
 hand3 = figure;
 subplot(2,1,1)
 plot(db(y));
-title(sprintf('%s;   reps = %d, Order = %d, impalign = %d',observed ,reps,N, impalign),'interpreter','none');
+title('dB Plot of Raw Observed Data');
 xlabel('samples');
 ylabel('dB y')
 ylim([-110 0])
 subplot(2,1,2)
 plot(db(ir));
+title('dB Plot of Recovered IR');
 xlabel('samples');
 ylabel('dB ir')
 ylim([-110 0])
@@ -88,13 +90,13 @@ hand4 = figure;
 subplot(2,1,1);
 semilogx(freq,db(abs(H(1:length(H)/2))));
 xlim([100,halfNyq])
-ylim([-80, 10])
+ylim([-120, 10])
 title(sprintf('Frequency response of %s;   reps = %d, Order = %d, impalign = %d',observed ,reps,N, impalign),'interpreter','none');
 xlabel('Frequency (Hz)');
 ylabel('dB Magnitude');
 subplot(2,1,2)
 plot(freq, db(abs(H(1:length(H)/2))));
-ylim([-80, 10])
+ylim([-120, 10])
 title('Linear Frequency Response');
 xlabel('Frequency (Hz)');
 ylabel('dB Magnitude');
