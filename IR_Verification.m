@@ -1,4 +1,53 @@
-function [yrecovered] = IR_Verification(hq, x, y, varargin)
+function [] = IR_Verification(observed, mls, reps, N, channels)
+%This function takes in a measurement .wav file, extracts the IR using
+%AMLS, and verifies that the IR was extracted correctly.
+%
+%Inputs:
+%
+%
+%
+%   observed                 string - name of measured .wav file  
+%                            ex] 'test.wav'
+% 
+%   mls                      string - name of mls used during measurement 
+%                            ex] 'mls.wav'
+% 
+%   reps                     repetitions of mls
+% 
+%   N                        order of mls
+% 
+%   channels                 Use to specify how many, or which, channel to
+%                            use.  For monaural recordings, put in either
+%                            1 or 2; 1 to use the left channel or 2 to use
+%                            the right channel.  To use both channels of a
+%                            stereo recording, enter 3.  This variable is
+%                            optional; if nothing is specified it will
+%                            default to 1.
+ 
+if (nargin < 5)
+    channels = 1;
+end
+
+% use Trimmer tool to clean up recording, y = trimmed observed output
+
+[y,noise] = Trimmer(observed, reps, N, channels);
+
+% read in mls .wav file, x = mls
+
+x = audioread(mls);
+
+
+% Extract impulese response using AMLS, hq = recovered IR
+
+hq = AnalyseMLSSequence(y,0,reps,N,true,0);
+
+% send variables to IR_Verification_Plot.m to verify the extraction
+
+yrecovered = IR_Verification_Plot(hq, x, y, observed);
+
+end
+
+function [yrecovered] = IR_Verification_Plot(hq, x, y, observed, varargin)
 %This function is a generalization of the test script
 %Convolution_IR_Verification_Test.m.
 %
@@ -33,7 +82,7 @@ function [yrecovered] = IR_Verification(hq, x, y, varargin)
 %========================================================================
 
 %Set default
-if ISEMPTY(varargin) == 0
+if length(varargin) == 0
    showplot = 1; 
 elseif length(varargin) == 1
    showplot = varargin{1};
@@ -59,12 +108,14 @@ plot(yrecovered)
 xlabel('Samples')
 ylabel('Amplitude')
 title('Data Recovered Using Convolution')
+ylim([-.8,.8])
 
 subplot(1,2,2)
 plot(y)
 xlabel('Samples')
 ylabel('Amplitude')
-title('Data From .wav file (WAV\_0159\_001 - weigel)')
+title(sprintf('Data From .wav file %s',observed))
+ylim([-.8,.8])
 
 end
 
