@@ -5,7 +5,8 @@ function [y] = OverlapSaveDemo(x,h,N)
 % Input "N" is the length of the segments in the overlap-save method (I.E.
 % the length of each little chunk of convolution that is done at any one
 % time.  N must be reasonably chosen; constraint: length(h) < N < length(x)
-% Also, N SHOULD BE A POWER OF TWO!
+% Also, N SHOULD BE A POWER OF TWO!  Not critical for this implementation,
+% but it'll make it faster.
 %
 % Throughout the program, lowercase variables represent the vectors in
 % time-space and capital variables represent the vectors in frequency-space
@@ -30,7 +31,7 @@ xPrePad=[xLeadzeroes;x];
 % Tacking on the tailing zeroes to "x" so that it is long enough for the
 % last convolution to happen.
 xNLength=ceil(length(xPrePad)/(N-L+1));
-xTailzeroes=zeros(((xNLength*N)-length(xPrePad)),1);
+xTailzeroes=zeros(((xNLength*(N-L+1)+L-1)-length(xPrePad)),1);
 xFullPad=[xPrePad;xTailzeroes];
 % xFullPad should now have (length(h)-1) zeroes ahead of it and enough
 % zeroes on the end of it to make its overall length an integer multiple of
@@ -55,11 +56,11 @@ y=0; % Giving the function a "y" variable so it doesn't complain about
 % entire segment is saved (useless zeroes on end).
      
 for i=1:(xNLength-1)
-    xi=xFullPad(1+(N*(i-1)):(N*i));
+    xi=xFullPad(((i*(N-L+1))-N+L):((i*(N-L+1))+L-1));
     X=fft(xi);
     Y=X.*H;
     yi=ifft(Y);
-    stor=yi((L-1):end); % Temporary variable that holds the newest usuable (saved) values 
+    stor=yi((L):end); % Temporary variable that holds the newest usuable (saved) values 
     y=[y;stor];
 end
 
@@ -68,11 +69,11 @@ end
 % instead only taking as far as needed to complete the length of the
 % convolution, which should be M+L-1
 
-xi=xFullPad(1+(N*(xNLength-1)):((N*xNLength)));
+xi=xFullPad(((xNLength*(N-L+1))-N+L):((xNLength*(N-L+1))+L-1));
 X=fft(xi);
 Y=X.*H;
 yi=ifft(Y);
-stor=yi((L-1):(rem((length(xPrePad)),(N-L+1))));
+stor=yi((L):(L-1+(rem((length(xPrePad)),(N-L+1)))));
 y=[y;stor];
 y=y(2:end); % Chopping off the useless zero at the start of "y," it's left over from initializing "y"
 
@@ -80,3 +81,4 @@ y=y(2:end); % Chopping off the useless zero at the start of "y," it's left over 
 % (explicit) convolution
 Classicconv=conv(x,h)
 Circconv=cconv(x,h)
+Difference=y-Classicconv
