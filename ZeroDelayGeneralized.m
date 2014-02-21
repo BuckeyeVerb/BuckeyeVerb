@@ -1,14 +1,14 @@
 %number of samples in a block
-N = 8;
+N = 35;
 
 %number of blocks of input
-x_Total = 4;
+x_Total = 64;
 
 %Fill input signal vector with random numbers
 x = rand(1,x_Total*N);
 
-%value of blocks of impulse response
-h_Total = 4;
+%number of blocks of impulse response
+h_Total = 16;
 
 %Fill input signal vector with random numbers
 h = rand(1,h_Total*N);
@@ -50,13 +50,15 @@ for block_Counter = 1:x_Total
     
 end
 
-for block_Counter = x_Total + 1:2*x_Total - 1
-    %Print out computation
-    y((block_Counter - 1)*N + 1 : (block_Counter)*N)
+for block_Counter = x_Total + 1:(x_Total + h_Total)
+    %Print out computation   
+    if (block_Counter == (x_Total + h_Total))
+        y((block_Counter - 1)*N + 1 : (block_Counter)*N - 1)
+    else
+        y((block_Counter - 1)*N + 1 : (block_Counter)*N)
+    end    
 end
 
-
-
-y
-%w = conv(x,h)
-%plot(y-w)
+%y
+w = conv(x,h)
+plot(y-w)
