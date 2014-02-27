@@ -1,22 +1,37 @@
 %number of samples in a block
 N = 128;
 
-%number of blocks of input
-x_Total = 16384;
+x = audioread('Guitar_Input.wav');
 
-%Fill input signal vector with random numbers
-x = rand(1,x_Total*N);
+h = audioread('stalbans_omni.wav');
 
-%number of blocks of impulse response
-h_Total = 4096;
+x_realsampleSize = length(x);
 
-%Fill input signal vector with random numbers
-h = rand(1,h_Total*N);
+h_realsampleSize = length(h);
+
+%if the number of samples in input signal is not to the power of 2, extend
+%the size of the input vector till it is a size of 2
+if ceil(log2(x_realsampleSize)) ~= floor(log2(x_realsampleSize))
+   x(2^(ceil(log2(x_realsampleSize)))) = 0;
+   x = transpose(x);
+end
+
+%if the number of samples in the impulse response is not to the power of 2, extend
+%the size of the input vector till it is a size of 2
+if ceil(log2(h_realsampleSize)) ~= floor(log2(h_realsampleSize))
+   h(2^ceil(log2(h_realsampleSize))) = 0;
+   h = transpose(h);
+end
+
+x_Total = length(x)/N;
+
+h_Total = length(h)/N;
 
 %Final output array filled with 0's
 y = zeros(1,(length(x) + length(h)) - 1);
 
 for block_Counter = 1:x_Total
+    
     %standard convolve N samples with h0 
     y = standConv(y,block_Counter,x,h,N);
     
@@ -46,19 +61,22 @@ for block_Counter = 1:x_Total
     end
     
     %Print out computation
-    y((block_Counter - 1)*N + 1 : (block_Counter)*N)
+    %y((block_Counter - 1)*N + 1 : (block_Counter)*N)
+    soundsc(y((block_Counter - 1)*N + 1 : (block_Counter)*N),96000)
     
 end
 
 for block_Counter = x_Total + 1:(x_Total + h_Total)
     %Print out computation   
     if (block_Counter == (x_Total + h_Total))
-        y((block_Counter - 1)*N + 1 : (block_Counter)*N - 1)
+        %y((block_Counter - 1)*N + 1 : (block_Counter)*N - 1)
+        soundsc(y((block_Counter - 1)*N + 1 : (block_Counter)*N - 1),96000)
     else
-        y((block_Counter - 1)*N + 1 : (block_Counter)*N)
+        %y((block_Counter - 1)*N + 1 : (block_Counter)*N)
+        soundsc(y((block_Counter - 1)*N + 1 : (block_Counter)*N),96000)
     end    
 end
 
 %y
-w = conv(x,h)
-plot(y-w)
+%w = conv(x,h)
+%plot(y-w)
