@@ -144,6 +144,7 @@ static void BufferTxDMAActivate(unsigned int txBuf, unsigned short numSamples,
                                 unsigned short linkAddr);
 static void BufferRxDMAActivate(unsigned int rxBuf, unsigned short parId,
                                 unsigned short parLink);
+static void ByteBuftoFloatBuf(unsigned int BufPtr);
 
 /******************************************************************************
 **                      INTERNAL VARIABLE DEFINITIONS
@@ -152,7 +153,7 @@ static unsigned char loopBuf[NUM_SAMPLES_LOOP_BUF * BYTES_PER_SAMPLE] = {0};
 
 /*
 ** Transmit buffers. If any new buffer is to be added, define it here and 
-** update the NUM_BUF.
+** update the NUM_BUF. Note the structure goes like so: [lsb left channel, msb left channel, zero, zero, lsb right channel, msb right channel, zero, zero]
 */
 static unsigned char txBuf0[AUDIO_BUF_SIZE];
 static unsigned char txBuf1[AUDIO_BUF_SIZE];
@@ -160,11 +161,25 @@ static unsigned char txBuf2[AUDIO_BUF_SIZE];
 
 /*
 ** Receive buffers. If any new buffer is to be added, define it here and 
-** update the NUM_BUF.
+** update the NUM_BUF. Note the structure goes like so: [lsb left channel, msb left channel, zero, zero, lsb right channel, msb right channel, zero, zero]
 */
 static unsigned char rxBuf0[AUDIO_BUF_SIZE];
 static unsigned char rxBuf1[AUDIO_BUF_SIZE];
 static unsigned char rxBuf2[AUDIO_BUF_SIZE];
+
+/*
+** Recieve buffer of floats - left channel. Buffer that has been converted from an array of bytes to an array of floats.
+** Note the structre goes like this: [Re{left channel}, Im{left channel}]. 
+** The length of the buffer is the number of samples per audio buf * 2 for the real an imaginary parts
+*/
+static float leftch[NUM_SAMPLES_PER_AUDIO_BUF << 1];
+
+/*
+** Recieve buffer of floats - right channel. Buffer that has been converted from an array of bytes to an array of floats.
+** Note the structre goes like this: [Re{left channel}, Im{left channel}]
+** The length of the buffer is the number of samples per audio buf * 2 for the real an imaginary parts
+*/
+static unsigned float rightch[NUM_SAMPLES_PER_AUDIO_BUF << 1];
 
 /*
 ** Next buffer to receive data. The data will be received in this buffer.
@@ -214,6 +229,7 @@ static unsigned int const txBufPtr[NUM_BUF] =
            (unsigned int) txBuf1,
            (unsigned int) txBuf2
        };
+
 
 /*
 ** Default paRAM for Transmit section. This will be transmitting from 
@@ -728,5 +744,18 @@ static void McASPErrorIsr(void)
 
     ; /* Perform any error handling here.*/
 }
+
+/*
+ ** This function converts the recieve buffer from an array of bytes to an array of floats. Once the data has been converted to floats, it can be acted on.
+ */
+static void ByteBuftoFloatBuf(unsigned int BufPtr)
+{
+
+    /* Convert the left channel from bytes to floats */
+	/* As a test, only convert the first sample */
+	/* As is right now, the value is converted to a value between -1 and 1 */
+	*﻿﻿leftch = (float)((unsigned int)((*BufPtr[0])+(*BufPtr[1] << 8))/(2 << 15) - 1)
+	
+{
 
 /***************************** End Of File ***********************************/
