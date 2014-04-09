@@ -1,14 +1,14 @@
 %number of samples in a block
-N = 128;
+N = 32;
 
 %number of blocks of input
-x_Total = 16384;
+x_Total = 8;
 
 %Fill input signal vector with random numbers
 x = rand(1,x_Total*N);
 
 %number of blocks of impulse response
-h_Total = 4096;
+h_Total = 8;
 
 %Fill input signal vector with random numbers
 h = rand(1,h_Total*N);
@@ -46,19 +46,34 @@ for block_Counter = 1:x_Total
     end
     
     %Print out computation
-    y((block_Counter - 1)*N + 1 : (block_Counter)*N)
+    %y((block_Counter - 1)*N + 1 : (block_Counter)*N)
     
 end
 
-for block_Counter = x_Total + 1:(x_Total + h_Total)
-    %Print out computation   
-    if (block_Counter == (x_Total + h_Total))
-        y((block_Counter - 1)*N + 1 : (block_Counter)*N - 1)
-    else
-        y((block_Counter - 1)*N + 1 : (block_Counter)*N)
-    end    
-end
+% for block_Counter = x_Total + 1:(x_Total + h_Total)
+%     %Print out computation   
+%     if (block_Counter == (x_Total + h_Total))
+%         y((block_Counter - 1)*N + 1 : (block_Counter)*N - 1)
+%     else
+%         y((block_Counter - 1)*N + 1 : (block_Counter)*N)
+%     end    
+% end
 
-%y
-w = conv(x,h)
+y
+
+w = conv(x,h);
+%figure(1)
+%plot(y,'r')
+%title('Plot of Standard Convolution Output vs # of Samples', 'FontSize', 18)
+%ylabel('Output')
+%xlabel('# of Samples')
+%figure(2)
+%plot(w,'g')
+%title('Plot of Zero-Delay Convolution Output vs # of Samples', 'FontSize', 18)
+%ylabel('Output')
+%xlabel('# of Samples')
+figure(3)
 plot(y-w)
+title('Zero-Delay vs Standard Convolution', 'FontSize', 18)
+ylabel('Output Delta')
+xlabel('# of Samples')
