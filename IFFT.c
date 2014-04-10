@@ -45,17 +45,29 @@ void IFFT(float*Y, float*y, unsigned short N)
 	bit_rev(w, b>>1 );
 	DSPF_sp_icfftr2_dif(Y,w,b);
 
+/*Corrections required in case FFT.c was modified with similar corrections.  This'd be done only for the purpose of getting
+ * outputs that resemble the Matlab outputs.  Only break glass in case of emergency.
+ */
+/*	bit_rev(Y,b);
+ *  int a;
+	for (a=0;a<2*N;a=a+2)
+		{
+		Y[a+1]=-y[a+1];
+		}
 
-	//Scale by N
+ */
+
+
+	//Scale by N:
 	int i;
-	for (i = 0; i < N; i++) //ACHTUNG! Originally the limiting condition was "i < N*2"  I'm not sure why, but if there's a problem consider changing this first to see if anything's sovled
+	for (i = 0; i < N; i++)
 	   {
 	       Y[i] /= b;
 	   }
 
 	//Now we should have no complex values, so even indices of Y are real-valued and odd (cpx) indices or Y are zeroes.  We now chop out
 	//these interstitial zeroes
-	for (i=0; i<N/2;i++)
+	for (i=0; i<(N/2)-1;i++) //Note the loop end condition "i<(N/2)-1"  This is so that we extract every real value except the last one.  For purposes relating to the radix-2 constraint of the FFT/IFFT functions, we calculate FFTs that're one audio sample longer than necessary, and at the end we discard the final value in the convolved output.
 	{
 		y[i]=Y[2*i];
 	}

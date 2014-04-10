@@ -55,7 +55,7 @@ void gen_twiddle_fft_sp (float *w, int n); //Not presently used
 void FFT(float*x, float*X, unsigned short M) {
 	
 	unsigned short N;
-	N=-2+M*4; // This is the ULTIMATE length of the array that A.) needs to be convolved and B.) will be output.
+	N=M*4; // This is the ULTIMATE length of the array that A.) needs to be convolved and B.) will be output.
 	int a; //Counter variable, gets used in several "for" loops.  C doesn't allow declaration/initialization in the loop definition line
 	       //itself, so I declare 'a' here and use it as the counter in any given loop.
 
@@ -81,20 +81,29 @@ void FFT(float*x, float*X, unsigned short M) {
 //------ACTUAL FFT HERE:----------------
 	bit_rev(w, b >> 1);
 	DSPF_sp_cfftr2_dit(X,w,b);
-	/*bit_rev(X,b); THIS IS COMMENTED OUT FOR GOOD REASON.  If you were to print out the values of X as they are now, w/o this line
+	/*bit_rev(X,b);
+
+	 	 	 	  * THIS IS COMMENTED OUT FOR GOOD REASON.  If you were to print out the values of X as they are now, w/o this line
 	 	 	 	  * included as part of the code, the numbers would NOT match up to the numbers you'd get from Matlab's FFT (given the
 	 	 	 	  * same input).  IF you run this bit-reversal you would get the proper numbers, with one remaining problem: the
-	                         * imaginary-number entries of the array ALL have the incorrect sign.  That's why the following few lines
-	for (a=0;a<2*N;a=a+2)    * are also commented out; they're simply a loop that runs through the array and changes every positive to
-	{						 * a negative and vice-versa.
-		x[a+1]=-x[a+1];      * So why, you ask, would we do all this?  The procedure would have to be reversed before the results are
-	}						 * fed into the IFFT.  If the results from this function, WITHOUT this commented-out post-processing, are
-							 * fed into the IFFT function, you WILL obtain the proper results out of it.  If you DO apply this post-
-							 * processing and THEN put it into the IFFT, you will get out nonsense, meaningless results.  Since it
-							 * is useless to do work just to un-do it moments later, we're just going to shuttle data out the FFT and in
-							 * the IFFT in this confusing, though properly-functioning, form.
+	 	 	 	  * imaginary-number entries of the array ALL have the incorrect sign.  That's why the following few lines
+	 	 	 	  * are also commented out; they're simply a loop that runs through the array and changes every positive to
+				  * a negative and vice-versa.
+				  * So why, you ask, would we do all this?  The procedure would have to be reversed before the results are
+				  * fed into the IFFT.  If the results from this function, WITHOUT this commented-out post-processing, are
+				  * fed into the IFFT function, you WILL obtain the proper results out of it.  If you DO apply this post-
+				  * processing and THEN put it into the IFFT, you will get out nonsense, meaningless results.  Since it
+				  * is useless to do work just to un-do it moments later, we're just going to shuttle data out the FFT and in
+				  * the IFFT in this confusing, though properly-functioning, form.
+				  * */
+	/*
+		for (a=0;a<2*N;a=a+2)
+			{
+			x[a+1]=-x[a+1];
+			}
+			*/
 //--------------------------------------
-*/
+
 }
 
 
