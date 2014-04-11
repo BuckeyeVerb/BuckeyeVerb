@@ -8,28 +8,42 @@
  *
  * Description of function, inputs, and outputs:
  *
+ *
+ * INPUTS & OUTPUTS:
+ *
+ * x = an array entirely composed of real-valued audio samples.  This is the thing you want an FFT of.  Type: array of floats
+ * X = This is a container for the values we calculate to go into.  It is of a different size than 'x' (namely, 4*x).  Must be declared
+ *     with 'malloc' outside this function (in whatever scope is calling this function).  Type: array of floats
+ * M = The length of x; literally how many entries are in array 'x.'  You'd better hope it's a power of two.  Type: unsigned short
+ *
+ *
+ * DESCRIPTION:
+ *
  * This function performs a few auxiliary tasks necessary for working in the language of Code Composer, and C in general.  Feed in the
  * array you want an FFT taken of ("x").  This function will add enough zeroes on the end for the length to be twice the original length,
- * minus one (as it needs to be for convolution).  Next, zeroes are inserted in-between every other element in the array (so, if the
- * original array was [x, x2, x3, x4, etc...] the new array will be [x, 0, x1, 0, x3, 0, x4, 0, etc...].  This is because the actual
- * FFT operation expects to read an array of 2N long representing N complex numbers; the first, third, fifth, etc... entries in the
- * array are the real parts and the second, fourth, sixth, etc... entries are the complex parts.
+ * (as it needs to be for convolution).  While strictly-speaking the length req'd to imitate convolution is 2x-1, that would produce an
+ * array that is one less than a power of two (assuming, as I've the right to, that the input 'x' has a length that's a power of two).
+ * The DSP's function that actually performs the nitty-gritty FFT gruntwork would not like this - it MUST have radix-2 inputs.  So we
+ * simply add on one x-length's worth of zeroes, making the overall size 2x.
+ *
+ * Next, zeroes are inserted in-between every other element in the array (so, if the original array was [x, x2, x3, x4, etc...] the
+ * new array will be [x, 0, x1, 0, x3, 0, x4, 0, etc...].  This is because the actual FFT operation expects to read an array of 2N
+ * long representing N complex numbers; the first, third, fifth, etc... entries in the array are the real parts and the second,
+ * fourth, sixth, etc... entries are the complex parts.
  *
  * Furthermore, and of particular concern with regard to this function communicating with the scope in which it is called, arrays cannot
  * be returned as results of functions in C.  This is why techniques like pointers and overwriting the input vector are used.
  * Therefore this function needs to be fed, as an INPUT, an array the size of the eventual OUTPUT so that is has some place to send
- * the values it calculates.  Since we insert interstitial zeroes [as mentioned above] AND append zeroes onto the end (the array to be
- * FFT'd must be (2*input length)-1 long, the output ends up being longer than the input.  Specifically, if the input is an array 'M'
- * elements long, then the output will be an array '4M - 2' elements long.  The three inputs to this function are 'x,' 'X,' and 'M.'
- * 'x' is the actual unprocessed audio data samples and is 'M' long, 'X' is an empty array ready and waiting for input that's '4M-2' long.
- * Of
- * course it follows, then, that 'X' must be declared (and properly sized!) in the same scope that this function ('FFT') gets called.
+ * the values it calculates.  Since we insert interstitial zeroes [as mentioned above] AND append zeroes onto the end, the output ends
+ * up being longer than the input.  Specifically, if the input is an array 'M' elements long, then the output will be '4M' elements long.
+ *
+ * Of course it follows, then, that 'X' must be declared (and properly sized!) in the same scope that this function ('FFT') gets called.
  * THIS IN AND OF ITSELF IS NOT A PROBLEM, BUT IT **MUST** BE KNOWN BY ANYONE WHO WANTS TO CALL THIS FUNCTION.  Supposing this function
  * is called repeatedly by a 'for' or other loop, declaration/initialization of 'X' needs to happen INSIDE the loop so that each time
- * the loop runs, 'X' gets re-declared at the new, proper size.
+ * the loop runs, 'X' gets re-declared at the new, proper size (use C standard library func. 'malloc' to do this).
  * 'M' is the length of the input 'x.'  Because of the whole pointer situation and many limitations of C in general, we cannot determine
- * how long 'x' is inside this function.  We can, however, keep track of it up above (in whatever scope calls this function) and pass that
- * value in to this function.  Note that 'M's type is "unsigned short."
+ * how long 'x' (or 'X') is inside this function.  We can, however, keep track of it up above (in whatever scope calls this function) and
+ * pass that value in to this function.  Note that 'M's type is "unsigned short."
  *
  *
  *      Author: Erik "Baron Flambo" Ringman
@@ -54,13 +68,12 @@ void gen_twiddle_fft_sp (float *w, int n); //Not presently used
 
 void FFT(float*x, float*X, unsigned short M) {
 	
-	unsigned short N;
-	N=M*4; // This is the ULTIMATE length of the array that A.) needs to be convolved and B.) will be output.
-	int a; //Counter variable, gets used in several "for" loops.  C doesn't allow declaration/initialization in the loop definition line
-	       //itself, so I declare 'a' here and use it as the counter in any given loop.
+	int N;
+	N = (int) 2*M; //Integer of merit for many functions called herein.  Equal to the number of complex values that'll be in 'X' (which is twice as many as in 'x')
 
-	int b; /*This will be used for some of the bookkeeping in the loop immediately below; when referencing an array index in C you cannot
-	         do a computation, you must be specifically referencing a numerical location. */
+	int a; //Counter variable, gets used in several "for" loops.
+
+	int b; /*This will be used for some of the bookkeeping in the loop immediately below */
 	int c; /*Similar to b, this is used for different matrix indexing.*/
 
 	for (a=0; a<M; a++) //Assign the data from x to every other slot in X, inserting zeroes in-between.
@@ -70,38 +83,28 @@ void FFT(float*x, float*X, unsigned short M) {
 		X[b]=x[a];
 		X[c]=0;
 	}
-	for (a=2*M+1; a<=N; a++) //Appends the additional zeroes on to the end.  Note that this is both the real and imaginary elements
+
+	for (a=2*M; a<2*N; a++) //Appends the additional zeroes on to the end.  Note that this is both the real and imaginary elements
 	{
 		X[a]=0;
 	}
-	b=N/2; // 'b' from above is useless now, so I'll take over that variable to initialize 'w' (contains all the twiddle factors)
-	float* w =(float*)malloc(sizeof(float)*b); //"w," twiddle-factor container, must be defined in this way since its length depends on a variable
-	gen_w_r2(w,b); //Twiddle factor generation; function prototyped and included below
+
+	float* w =(float*)malloc(sizeof(float)*M); //"w," twiddle-factor container, must be defined in this way since its length depends on a variable
+	gen_w_r2(w,N); //Twiddle factor generation; function prototyped and included below
 
 //------ACTUAL FFT HERE:----------------
-	bit_rev(w, b >> 1);
-	DSPF_sp_cfftr2_dit(X,w,b);
-	/*bit_rev(X,b);
+	bit_rev(w, N >> 1);
+	DSPF_sp_cfftr2_dit(X,w,N);
+	/*bit_rev(X,N); */
 
-	 	 	 	  * THIS IS COMMENTED OUT FOR GOOD REASON.  If you were to print out the values of X as they are now, w/o this line
-	 	 	 	  * included as part of the code, the numbers would NOT match up to the numbers you'd get from Matlab's FFT (given the
-	 	 	 	  * same input).  IF you run this bit-reversal you would get the proper numbers, with one remaining problem: the
-	 	 	 	  * imaginary-number entries of the array ALL have the incorrect sign.  That's why the following few lines
-	 	 	 	  * are also commented out; they're simply a loop that runs through the array and changes every positive to
-				  * a negative and vice-versa.
-				  * So why, you ask, would we do all this?  The procedure would have to be reversed before the results are
-				  * fed into the IFFT.  If the results from this function, WITHOUT this commented-out post-processing, are
-				  * fed into the IFFT function, you WILL obtain the proper results out of it.  If you DO apply this post-
-				  * processing and THEN put it into the IFFT, you will get out nonsense, meaningless results.  Since it
-				  * is useless to do work just to un-do it moments later, we're just going to shuttle data out the FFT and in
-				  * the IFFT in this confusing, though properly-functioning, form.
-				  * */
+	 	 	 	 /* These to bits (bit_rev & 'for' loop) are the parts that make the 'raw' outputs look like the Matlab outputs.  To
+	 	 	 	  * re-include them in the code to be compiled, simply remove the comments around them. */
 	/*
 		for (a=0;a<2*N;a=a+2)
 			{
 			x[a+1]=-x[a+1];
 			}
-			*/
+	*/
 //--------------------------------------
 
 }
