@@ -4,9 +4,6 @@
  */
 //
 
-
-//
-
 #include <stdio.h>
 #include <time.h>
 #include <math.h>
@@ -21,16 +18,17 @@
 
 /*
 
-h0 declared and defined
-h1 declared and defined
-h2 declared and defined
+h0 declared, defined, and FFT'd
+h1 declared, defined, and FFT'd
+h2 declared, defined, and FFT'd
 
  */
 
 void standConv(float*, int, float*, float*);
 complex double* IRComp(float*,int,int,int);
-complex double* XComp(float*,int,int,int);
-void outputComp(float*,int,int,int,double complex*,double complex*,int);
+void FastConvolve(float*,int,int);
+void outputComp(float*,int,int,double complex*,double complex*,int);
+void IRComp(float*,int,int,int);
 
 
 
@@ -43,18 +41,12 @@ void outputComp(float*,int,int,int,double complex*,double complex*,int);
  *
  */
 
+
+
 #define h_size
 #define Q      /*RIGHT NOW, THERE'S A DUMMY VAR. NAMED "Q" IN USE.  This Q represents the number of blocks that 'h' could be split into
  	 	 	 	*IF each block was EVENLY-SIZED and the size of an input buffer.  It is NOT the number of blocks that 'h' is split into
  	 	 	 	*by the Zero-Delay paper method. */
-
-
-
-
-
-
-
-
 
 
 /*Here 'x' is the latest buffer of input samples, and 'y' is the next, ready-to-be-played-back, buffer's
@@ -64,19 +56,30 @@ void outputComp(float*,int,int,int,double complex*,double complex*,int);
  * then gets called again.
  * 2.) They only get declared once; even though they're inside the algorithm they won't get 're-declared' every
  * time the algorithm's called. */
-void SimpleAlgorithmTest(float*x,float*y)
+
+void SimpleAlgorithmTest(float*x,float*y,int Q)
 {
     static int block_Counter=0; //Starts out at zero, gets incremented by one every time the algorithm runs (in other words, every
     							//another input buffer arrives
 
     //Input Bucket Setup
-    float* xbucket = (float*) malloc(h_Size*sizeof(float));
+    static float* xbucket = (float*) malloc(h_Size*sizeof(float));
     memset(xbucket,0,h_Size*sizeof(int));
 
     //Output Bucket Setup
     int y_Size = h_size + /*hmax size (in this example that's h2's size) */ - 1;
-    float* ybucket = (float*) malloc(y_Size*sizeof(float));
+    static float* ybucket = (float*) malloc(y_Size*sizeof(float));
     memset(ybucket,0,y_Size*sizeof(int)); //Initialize all values to zero.
+
+
+    int i; //Counter variable, used variously throughout different loops
+    //Input bucket "management" (insertion of new buffers)
+    for (i=0;i<BLOCKLENGTH;i++)
+    {
+    	int a=BLOCKLENGTH*block_Counter+i;
+    	xbucket[a]=x[i];
+    }
+
 
     int mult_Factor = 1;
         
@@ -87,15 +90,11 @@ void SimpleAlgorithmTest(float*x,float*y)
             
     	if(block_Counter % mult_Factor == 0)
     	{
-    		double complex* IR;
-    		//take the fft of the IR
-    		IR = IRComp(h,2*mult_Factor,3*mult_Factor,2*mult_Factor);
-
     		double complex* X;
     		//take the fft of the Input Signal
-    		X = XComp(x,block_Counter,1*mult_Factor,2*mult_Factor);
+    		FastConvolve(xbucket,block_Counter,mult_Factor*BLOCKLENGTH);
                 
-    		outputComp(y,block_Counter,2*mult_Factor,4*mult_Factor,IR,X,2*mult_Factor);
+    		outputComp(ybucket,block_Counter,2*mult_Factor,IR,X,2*mult_Factor);
                 
     		//Handles the last block of the impulse response
     		if(impulse_Counter != impulse_IterateTotal || impulse_IterateTotal == floor(log2(Q)) - 1)
@@ -103,7 +102,7 @@ void SimpleAlgorithmTest(float*x,float*y)
     			//take the fft of the IR
     			IR = IRComp(h,3*mult_Factor,4*mult_Factor,2*mult_Factor);
                     
-    			outputComp(y,block_Counter,2*mult_Factor,4*mult_Factor,IR,X,2*mult_Factor);
+    			outputComp(ybucket,block_Counter,2*mult_Factor,IR,X,2*mult_Factor);
     		}
                 
     	}
@@ -111,81 +110,74 @@ void SimpleAlgorithmTest(float*x,float*y)
     	mult_Factor *= 2;
     }
 
+    //Closing output bucket management (shifting)
+    for(i=0;i<BLOCKLENGTH;i++)
+    {
+    	a=i+BLOCKLENGTH;
+    	ybucket[i]=ybucket[a];
+    }
+
     block_Counter++;
+}
+
+
+
+int main(int argc, const char * argv[])
+{
+    zerodelayconvolution();
+
+    return 0;
 }
 
 
 
 
 
+//----Prototyped Functions------------------------------
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-complex double* IRComp(float* h,int s_B,int e_B,int h_Size)
+void IRComp(float* h,int s_B,int e_B,int h_Size) //IN PROGRESS, BUT SHOULDN'T BE NEEDED AS h-BLOCKS SHOULD BE PRE-FFT'd
 {
-    complex double* IR = (complex double*) malloc(sizeof(complex double)*(h_Size*N - 1));
-    //compute the fft of h, place it in IR
+	int N=-2+4/*length of input*/;
+    float* IR = (float*)malloc(sizeof(float)*(h_Size*N - 1));
+    FFT(h,IR,m);
     //------------------------------------
 
     //return value
     return IR;
 }
 
-complex double* XComp(float* x,int s_B,int e_B,int x_Size)
+void FastConvolve(float* xbucket, float*ybucket,float*H, int s_B, int M)
 {
-    complex double* X = (complex double*) malloc(sizeof(complex double)*(x_Size*N - 1));
-    //compute the fft of h, place it in IR
-    //------------------------------------
+	int i; //counter variable
+	int N=4*M-2;//length of FFT'd blocks
+	float* x =(float*)malloc(sizeof(float)*M);
+	float* X =(float*)malloc(sizeof(float)*(N));
+	int a; //another counter variable
+	for(i=0;i<M;i++)
+	{
+		a=s_B+i;
+		x[i]=xbucket[a];
+	}
+    FFT(x,X,M);
 
-    //return value
-    return X;
-}
+// This'll go away: -----> void outputComp,float*IR)
 
-void outputComp(float* y,int block_Counter,int s_B,int e_B,double complex* IR,double complex* X,int fast_MultSize)
-{
-    //Perform element by element multiplication of IR and X
-    //int fast_MultSize = sizeof(IR)/sizeof(double complex);
-    complex double* fast_MultContainer = (complex double*) malloc(sizeof(complex double)*(fast_MultSize*N - 1));
+    float* Y = (float*) malloc(sizeof(float)*(N));
 
-    for(int i=0; i<fast_MultSize; i++)
+    for (i=0;i<N;i++)
     {
-        fast_MultContainer[i] = IR[i] * X[i];
+    	Y[i] = X[i]*H[/*specific index here*/];
     }
 
-    //compute ifft of fast_MultContainer data. I won't do that here, but I will just make a dummy array
-    float* ifft_Container = (float*) malloc(sizeof(float)*fast_MultSize);
+    float* y = (float*) malloc(sizeof(float)*(2*M-1);
 
-    //compute the starting index to write to time-domain output array
-    int output_StartIndex = (block_Counter + s_B)*N;
+    IFFT(Y,y,N);
+    int output_StartIndex = (block_Counter + (2*multfactor))*N;
 
-    //compute ifft of fast_MultContainer, store it in ifft_Container
-    //--------------------------------------------------------------
-
-    //compute values for output array
     for(int i=0; i < fast_MultSize; i++)
     {
-        y[output_StartIndex+i] += ifft_Container[i];
+        ybucket[output_StartIndex+i] += y[i];
     }
 
-}
-
-
-int main(int argc, const char * argv[])
-{
-    zerodelayconvolution();
-    
-    return 0;
 }
 
