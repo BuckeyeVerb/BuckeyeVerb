@@ -2,13 +2,13 @@
 N = 32;
 
 %number of blocks of input
-x_Total = 8;
+x_Total = 1024;
 
 %Fill input signal vector with random numbers
 x = rand(1,x_Total*N);
 
 %number of blocks of impulse response
-h_Total = 8;
+h_Total = 16;
 
 %Fill input signal vector with random numbers
 h = rand(1,h_Total*N);
@@ -25,7 +25,7 @@ for block_Counter = 1:x_Total
     impulse_Size = ceil(log2(h_Total)) - 1;
     
     for impulse_Counter = 1:impulse_Size
-    
+        
         if rem(block_Counter,m_F) == 0
              
             IR = IRComp(h,2*m_F,3*m_F,2*m_F,N);
