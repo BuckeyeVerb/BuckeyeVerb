@@ -49,6 +49,8 @@
 #include "psc.h"
 
 #include <string.h>
+#include <stdio.h>
+#include <stdlib.h>
 
 /******************************************************************************
 **                      INTERNAL MACRO DEFINITIONS
@@ -63,13 +65,13 @@
 #define WORD_SIZE                             (16u)
 
 /* Sampling Rate which will be used by both transmit and receive sections */
-#define SAMPLING_RATE                         (48000u)
+#define SAMPLING_RATE                         (44100u)
 
 /* Number of channels, L & R */
 #define NUM_I2S_CHANNELS                      (2u) 
 
 /* Number of samples to be used per audio buffer */
-#define NUM_SAMPLES_PER_AUDIO_BUF             (2000u)
+#define NUM_SAMPLES_PER_AUDIO_BUF             (64u)
 
 /* Number of buffers used per tx/rx */
 #define NUM_BUF                               (3u)
@@ -144,7 +146,9 @@ static void BufferTxDMAActivate(unsigned int txBuf, unsigned short numSamples,
                                 unsigned short linkAddr);
 static void BufferRxDMAActivate(unsigned int rxBuf, unsigned short parId,
                                 unsigned short parLink);
-static void ByteBuftoFloatBuf(unsigned int BufPtr);
+static void ByteBuftoFloatBuf(unsigned int ByteBufPtr, float *InputSampleBuf);
+static void FloatBuftoByteBuf(unsigned int ByteBufPtr, float *OutputSampleBuf);
+static void Gain(float *InputSampleBuf, float *OutputSampleBuf);
 
 /******************************************************************************
 **                      INTERNAL VARIABLE DEFINITIONS
@@ -168,18 +172,16 @@ static unsigned char rxBuf1[AUDIO_BUF_SIZE];
 static unsigned char rxBuf2[AUDIO_BUF_SIZE];
 
 /*
-** Recieve buffer of floats - left channel. Buffer that has been converted from an array of bytes to an array of floats.
-** Note the structre goes like this: [Re{left channel}, Im{left channel}]. 
-** The length of the buffer is the number of samples per audio buf * 2 for the real an imaginary parts
+** Input buffer of floats. Buffer that has been converted from an array of bytes to an array of floats.
+** The length of the buffer is the number of samples per audio buf
 */
-static float leftch[NUM_SAMPLES_PER_AUDIO_BUF << 1];
+static float InputSampleBuf[NUM_SAMPLES_PER_AUDIO_BUF/2];
 
 /*
-** Recieve buffer of floats - right channel. Buffer that has been converted from an array of bytes to an array of floats.
-** Note the structre goes like this: [Re{left channel}, Im{left channel}]
-** The length of the buffer is the number of samples per audio buf * 2 for the real an imaginary parts
+** Output buffer of floats. Buffer that has been converted from an array of bytes to an array of floats.
+** The length of the buffer is the number of samples per audio buf
 */
-static unsigned float rightch[NUM_SAMPLES_PER_AUDIO_BUF << 1];
+static float OutputSampleBuf[NUM_SAMPLES_PER_AUDIO_BUF/2];
 
 /*
 ** Next buffer to receive data. The data will be received in this buffer.
@@ -549,6 +551,7 @@ int main(void)
     unsigned short parToSend;
     unsigned short parToLink;
 
+
     /* Set up pin mux for I2C module 0 */
     I2CPinMuxSetup(0);
     McASPPinMuxSetup();
@@ -628,6 +631,14 @@ int main(void)
             parToLink  = PAR_TX_START + parOffTxToSend; 
  
             lastSentTxBuf = (lastSentTxBuf + 1) % NUM_BUF;
+
+            /* ByteBuftoFloatFuf returns the pointer to the array of the sample buffer. The samples are in floats.
+            ** The structure of the array goes [Re{signal}, Im{signal}]. As of right now, the function is only returning the left channel */
+            ByteBuftoFloatBuf(rxBufPtr[lastFullRxBuf], InputSampleBuf);
+
+            Gain(InputSampleBuf, OutputSampleBuf);
+
+            FloatBuftoByteBuf(rxBufPtr[lastFullRxBuf], OutputSampleBuf);
 
             /* Copy the buffer */
             memcpy((void *)txBufPtr[lastSentTxBuf],
@@ -748,14 +759,99 @@ static void McASPErrorIsr(void)
 /*
  ** This function converts the recieve buffer from an array of bytes to an array of floats. Once the data has been converted to floats, it can be acted on.
  */
-static void ByteBuftoFloatBuf(unsigned int BufPtr)
+static void ByteBuftoFloatBuf(unsigned int ByteBufPtr, float *InputSampleBuf)
 {
+    /* Declare local variables */
 
-    /* Convert the left channel from bytes to floats */
-	/* As a test, only convert the first sample */
-	/* As is right now, the value is converted to a value between -1 and 1 */
-	*﻿﻿leftch = (float)((unsigned int)((*BufPtr[0])+(*BufPtr[1] << 8))/(2 << 15) - 1)
+
+	int leastsb, midsb, mostsb, i;
+	float shift = 0;
+
+	char *ptr1;
+
+	/* Convert Int to char pointer */
+	ptr1 = (char *)ByteBufPtr;
+
+	for( i=0; i < NUM_SAMPLES_PER_AUDIO_BUF/2; i++ )
+	{
+	/* Convert Bytes to integers */
+	leastsb = (int)*(ptr1 + (8 * i)) & 0xFF;
+	mostsb = (int)*(ptr1 + (8 * i) + 1) & 0xFF;
+
+
+    /* Next perform the necessary bit shifting and convert the value to a float */
+	/* As is right now, the value is not converted to have positive and negative values centered on zero. */
+	/* This is just the integer value shoved into a float. */
+	/* It has also been assumed here that the data format is [leastsb, mostsb, midsb] */
+	InputSampleBuf[(i)] = (float)(leastsb + (mostsb << 8));
+
+		if(InputSampleBuf[i] > 32768)
+		{
+
+			InputSampleBuf[i] = InputSampleBuf[i] - 65536;
+
+		}
+
+
+	}
 	
+
+}
+
+/*
+** This function converts the receive buffer from an array of bytes to an array of floats. Once the data has been converted to floats, it can be acted on.
+*/
+static void FloatBuftoByteBuf(unsigned int ByteBufPtr, float *OutputSampleBuf)
 {
+	/* Initialize local variables */
+	int i;
+	char leastsb, midsb, mostsb;
+
+	char *ptr1;
+
+	/* Convert Int to char pointer */
+	ptr1 = (char *)ByteBufPtr;
+
+	for( i = 0 ; i < NUM_SAMPLES_PER_AUDIO_BUF/2; i++ )
+	{
+	/* Separate the bytes in the left channel sample */
+
+		if(OutputSampleBuf[i] < 0)
+				{
+
+					OutputSampleBuf[i] = OutputSampleBuf[i] + 65536;
+
+				}
+
+	leastsb = (char)((int)(OutputSampleBuf[i]) & 0x00FF);
+	mostsb = (char)(((int)(OutputSampleBuf[i]) >> 8) & 0x00FF);
+
+
+
+	ptr1[(8 * i) + 0] = leastsb;
+	ptr1[(8 * i) + 1] = mostsb;
+
+	}
+}
+
+
+/*
+** This function adds gain to the input buffer and copies it to the output buffer
+*/
+static void Gain(float *InputSampleBuf, float *OutputSampleBuf)
+{
+	float gain = 2.0;
+	int i;
+
+	for( i = 0 ; i < NUM_SAMPLES_PER_AUDIO_BUF/2 ; i++)
+	{
+
+	OutputSampleBuf[i] = gain * InputSampleBuf[i];
+
+	}
+
+
+
+}
 
 /***************************** End Of File ***********************************/
